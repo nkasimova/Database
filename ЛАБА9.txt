@@ -1,0 +1,66 @@
+if OBJECT_ID ('r_q', 'v') is not null
+	drop view r_q;
+
+go
+CREATE VIEW r_q AS
+(SELECT *
+	FROM TypeOfTransport as t inner join Route as i  
+	on t.RouteID = i.ID
+	inner join Way as w 
+	on i.WayID = w.ID
+	WHERE i.Fare > 1.5 * cast(t.FuelConsOn100k as float) * (w.Distance / 100) 
+	)
+go
+select*
+from r_q
+
+if object_id('Limit', 'TR') is not NULL
+	drop trigger Limit; 
+
+go
+CREATE TRIGGER Limit ON Route
+INSTEAD OF INSERT AS
+IF EXISTS(
+	SELECT Route.ID
+	FROM Route
+	WHERE Route.ID IN (SELECT inserted.ID FROM inserted)
+)
+BEGIN
+    ROLLBACK
+END
+ELSE 
+BEGIN 
+    SET IDENTITY_INSERT Route ON
+    INSERT INTO [Route] ([ID], [WayID], [Fare], [NumberOfPassengersPerDay], [NumberOfCarOnRoute])
+	SELECT i.ID, WayID, Fare, NumberOfPassengersPerDay, NumberOfCarOnRoute
+	FROM TypeOfTransport as t inner join inserted as i  
+	on t.RouteID = i.ID
+	inner join Way as w 
+	on i.WayID = w.ID
+	WHERE i.Fare > 1.5 * cast(t.FuelConsOn100k as float) * (w.Distance / 100) 
+	SET IDENTITY_INSERT Route OFF
+END
+
+SELECT *
+FROM Route
+
+DELETE
+FROM Route
+WHERE Route.ID in (
+SELECT Route.ID
+FROM TypeOfTransport, Route, Way
+WHERE ( 
+TypeOfTransport.RouteID = Route.ID AND Route.WayID = Way.ID AND 
+Route.Fare > 1.5 * cast(TypeOfTransport.FuelConsOn100k as float) * (Way.Distance / 100) ))
+
+SET IDENTITY_INSERT Route ON
+INSERT INTO Route
+(ID, WayID, Fare, NumberOfPassengersPerDay, NumberOfCarOnRoute) VALUES
+		(26, 1, 0, 409, 7)
+INSERT INTO Route
+(ID, WayID, Fare, NumberOfPassengersPerDay, NumberOfCarOnRoute) VALUES
+		(26, 1, 1000000, 409, 7)
+SET IDENTITY_INSERT Route OFF  
+
+SELECT *
+FROM Route

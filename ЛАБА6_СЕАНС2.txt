@@ -1,0 +1,113 @@
+--ѕотер€нные изменени€
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED
+
+BEGIN TRANSACTION
+
+--т1 делает свои изменени€
+
+UPDATE TypeOfTransport
+SET AvarageSpeed = 250
+WHERE Name = 'Train'
+
+COMMIT
+
+SELECT ID, AvarageSpeed, Name
+FROM TypeOfTransport
+WHERE Name = 'Train'
+
+--“1 делает commit
+
+--------
+--√р€зное чтение
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED
+
+BEGIN TRANSACTION
+
+--выполнение запроса в т1
+
+UPDATE Way
+SET [Distance] = 7713
+WHERE ID = 1
+
+--выполнение запроса в т1
+
+ROLLBACK
+---------------------------------------------------------------------------------------------
+
+--√р€зное чтение
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+
+BEGIN TRANSACTION
+
+--выполнение запроса в т1
+
+UPDATE Way
+SET [Distance] = 7713
+WHERE ID = 1
+
+--выполнение запроса в т1
+
+ROLLBACK
+
+------
+--Ќеповтор€ющеес€ чтение
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+
+BEGIN TRANSACTION
+
+--¬ыполн€етс€ запрос дл€ т1
+
+UPDATE Way
+SET EstimatedTimeEnRoute = 100
+WHERE ID = 9
+
+COMMIT
+------------------------------------------------------------
+--Ќеповтор€ющеес€ чтение
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ
+
+BEGIN TRANSACTION
+
+--¬ыполн€етс€ запрос дл€ т1
+
+UPDATE Way
+SET EstimatedTimeEnRoute = 200
+WHERE ID = 9
+--запрос будет блокироватьс€
+COMMIT
+
+------
+--‘антом
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ
+
+BEGIN TRANSACTION
+
+--т1 выполн€ет запрос
+
+SET IDENTITY_INSERT TypeOfTransport ON
+INSERT INTO TypeOfTransport ([ID], [RouteID], [AvarageSpeed], [Name], [AmountOfCarInPark], [FuelConsOn100k]) VALUES
+						  (21, 1, 20, 'Bus', 3, 20)
+SET IDENTITY_INSERT TypeOfTransport OFF
+--запрос не будет блокирован и строка добавитс€
+COMMIT
+
+--т1 выполн€ет запрос
+
+
+---------------------------------------------------------
+--‘антом
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+BEGIN TRANSACTION
+
+--т1 выполн€ет запрос
+
+SET IDENTITY_INSERT TypeOfTransport ON
+INSERT INTO TypeOfTransport ([ID], [RouteID], [AvarageSpeed], [Name], [AmountOfCarInPark], [FuelConsOn100k]) VALUES
+						  (21, 1, 20, 'Bus', 3, 20)
+SET IDENTITY_INSERT TypeOfTransport OFF
+--запрос будет блокироватьс€
+COMMIT
+
+--т1 выполн€ет запрос
+---------------------------------------------------------

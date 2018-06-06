@@ -1,0 +1,178 @@
+USE [Городской транспорт3];
+
+DROP TABLE [RouteLarge];
+DROP TABLE [RouteLargeIndex];
+DROP TABLE [WayLarge];
+DROP TABLE [WayLargeIndex];
+
+CREATE TABLE [WayLarge]
+(
+	[ID] [int] NOT NULL,
+	[StartingStation] [varchar](100) NOT NULL,
+	[EndingStation] [varchar](100) NOT NULL,
+	[Distance] [int] NOT NULL,
+	[TheNumberOfStops] [int] NOT NULL,
+	CONSTRAINT [PK_Way] PRIMARY KEY ([ID] ASC)
+);
+
+CREATE TABLE [WayLargeIndex]
+(
+	[ID] [int] NOT NULL,
+	[StartingStation] [varchar](100) NOT NULL,
+	[EndingStation] [varchar](100) NOT NULL,
+	[Distance] [int] NOT NULL,
+	[TheNumberOfStops] [int] NOT NULL,
+	CONSTRAINT [PK_WayIn] PRIMARY KEY ([ID] ASC)
+);
+
+CREATE TABLE [RouteLarge]
+(
+	[ID] [int] NOT NULL,
+	[WayID] [int] NOT NULL,
+	[Fare] [int] NOT NULL,
+	[NumberOfPassengersPerDay] [int] NOT NULL,
+	[NumberOfCarOnRoute] [int] NOT NULL
+);
+
+CREATE TABLE [RouteLargeIndex]
+(
+	[ID] [int] NOT NULL,
+	[WayID] [int] NOT NULL,
+	[Fare] [int] NOT NULL,
+	[NumberOfPassengersPerDay] [int] NOT NULL,
+	[NumberOfCarOnRoute] [int] NOT NULL
+);
+
+ALTER TABLE [RouteLarge]
+	ADD CONSTRAINT [FK_RouteLarge]
+		FOREIGN KEY ([WayID]) 
+		REFERENCES [WayLarge] ([ID])
+
+ALTER TABLE [RouteLargeIndex]
+	ADD CONSTRAINT [FK_RouteLargeIndex]
+		FOREIGN KEY ([WayID]) 
+		REFERENCES [WayLargeIndex] ([ID])
+
+DELETE FROM WayLarge
+DELETE FROM WayLargeIndex
+DELETE FROM RouteLarge
+DELETE FROM RouteLargeIndex
+
+DECLARE @i INT
+SELECT @i = 1
+WHILE @i <= 100000
+BEGIN
+	INSERT INTO WayLarge([ID], [StartingStation], [EndingStation], [Distance], [TheNumberOfStops])
+	VALUES (@i, 'Starting Station' + cast(@i AS varchar (30)), 'Ending Station' + cast(@i AS varchar (30)), @i + 300, @i) 
+	SELECT @i = @i + 1;
+	END
+
+SELECT @i = 1
+WHILE @i <= 100000
+BEGIN
+	INSERT INTO RouteLarge([ID], [WayID], [Fare], [NumberOfPassengersPerDay], [NumberOfCarOnRoute])
+	VALUES (@i, @i, @i + 200 , @i + 300, @i + 177) 
+	SELECT @i = @i + 1;
+	END
+
+INSERT INTO WayLargeIndex ([ID], [StartingStation], [EndingStation], [Distance], [TheNumberOfStops])
+SELECT [ID], [StartingStation], [EndingStation], [Distance], [TheNumberOfStops] FROM WayLarge
+
+INSERT INTO RouteLargeIndex ([ID], [WayID], [Fare], [NumberOfPassengersPerDay], [NumberOfCarOnRoute])
+SELECT [ID], [WayID], [Fare], [NumberOfPassengersPerDay], [NumberOfCarOnRoute] FROM RouteLarge
+
+SELECT *
+FROM RouteLarge
+
+SELECT *
+FROM RouteLargeIndex
+
+SELECT *
+FROM WayLarge
+
+SELECT *
+FROM WayLargeIndex
+
+CHECKPOINT
+GO
+DBCC DROPCLEANBUFFERS
+GO
+
+SET STATISTICS TIME ON
+SET STATISTICS IO ON
+
+SELECT ID, Fare 
+FROM RouteLarge
+WHERE (Fare < 1300) and (ID > 77)
+/*
+(строк обработано: 1022)
+Таблица "RouteLarge". Число просмотров 1, логических чтений 376, физических чтений 0, упреждающих чтений 0, lob логических чтений 0, lob физических чтений 0, lob упреждающих чтений 0.
+
+ Время работы SQL Server:
+   Время ЦП = 47 мс, затраченное время = 43 мс.
+*/
+
+CREATE NONCLUSTERED INDEX IX_teamIndex ON RouteLargeIndex
+(
+	ID ASC,
+	Fare ASC
+)
+SELECT ID, Fare
+FROM RouteLargeIndex
+WHERE (Fare < 1300) and (ID > 77)
+
+/*
+(строк обработано: 1022)
+Таблица "RouteLargeIndex". Число просмотров 1, логических чтений 274, физических чтений 0, упреждающих чтений 0, lob логических чтений 0, lob физических чтений 0, lob упреждающих чтений 0.
+
+ Время работы SQL Server:
+   Время ЦП = 31 мс, затраченное время = 33 мс.
+*/
+
+/*Cравнение данных запросов:
+Запрос 1: стоимость запроса (по отношению к пакету) : 55%
+Запрос 2: стоимость запроса (по отношению к пакету) : 45%
+*/
+--
+SELECT StartingStation, EndingStation, Fare
+FROM RouteLarge JOIN WayLarge ON RouteLarge.WayID = WayLarge.ID
+WHERE (WayLarge.StartingStation LIKE 'StartingStation777') and RouteLarge.Fare < 9999
+
+/*
+(строк обработано: 11)
+Таблица "Workfile". Число просмотров 0, логических чтений 0, физических чтений 0, упреждающих чтений 0, lob логических чтений 0, lob физических чтений 0, lob упреждающих чтений 0.
+Таблица "Worktable". Число просмотров 0, логических чтений 0, физических чтений 0, упреждающих чтений 0, lob логических чтений 0, lob физических чтений 0, lob упреждающих чтений 0.
+Таблица "RouteLarge". Число просмотров 1, логических чтений 376, физических чтений 0, упреждающих чтений 0, lob логических чтений 0, lob физических чтений 0, lob упреждающих чтений 0.
+Таблица "WayLarge". Число просмотров 1, логических чтений 835, физических чтений 0, упреждающих чтений 0, lob логических чтений 0, lob физических чтений 0, lob упреждающих чтений 0.
+
+ Время работы SQL Server:
+   Время ЦП = 203 мс, затраченное время = 244 мс.
+*/
+
+CREATE NONCLUSTERED INDEX IX2_RouteLargeIndex ON RouteLargeIndex(
+	WayID ASC,
+	Fare ASC
+)
+
+
+
+CREATE NONCLUSTERED INDEX IX_WayLargeIndex ON WayLargeIndex(
+	StartingStation ASC,
+	ID ASC
+)
+SELECT StartingStation, Fare
+FROM RouteLargeIndex JOIN WayLargeIndex ON RouteLargeIndex.WayID = WayLargeIndex.ID
+WHERE (WayLargeIndex.StartingStation LIKE 'Starting Station777%') and RouteLargeIndex.Fare < 9999
+
+/*
+(строк обработано: 11)
+Таблица "RouteLargeIndex". Число просмотров 11, логических чтений 252, физических чтений 0, упреждающих чтений 0, lob логических чтений 0, lob физических чтений 0, lob упреждающих чтений 0.
+Таблица "WayLargeIndex". Число просмотров 1, логических чтений 3, физических чтений 0, упреждающих чтений 0, lob логических чтений 0, lob физических чтений 0, lob упреждающих чтений 0.
+
+ Время работы SQL Server:
+   Время ЦП = 3 мс, затраченное время = 13 мс.
+*/
+/*Cравнение данных запросов:
+Запрос 1: стоимость запроса (по отношению к пакету) : 80%
+Запрос 2: стоимость запроса (по отношению к пакету) : 20%
+*/

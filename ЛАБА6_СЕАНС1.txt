@@ -1,0 +1,198 @@
+--Потерянные изменения
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED
+
+BEGIN TRANSACTION
+
+SELECT ID, AvarageSpeed, Name
+FROM TypeOfTransport
+WHERE Name = 'Train'
+
+UPDATE TypeOfTransport
+SET AvarageSpeed = 200
+WHERE Name = 'Train'
+
+--т2 делает свои изменения
+
+COMMIT
+--итог: т2 не допускает выполнения изменений(они будут блокироваться). Сохранятся изменения, сделанные в т1
+--Следовательно, READ UNCOMMITTED не допускает потерянных изменений
+
+SELECT ID, AvarageSpeed, Name
+FROM TypeOfTransport
+WHERE Name = 'Train'
+
+--Грязное чтение
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED
+
+BEGIN TRANSACTION
+
+SELECT [Distance]
+FROM Way
+WHERE ID = 1
+--Distance
+----------
+--1900
+
+--т2 меняет значение
+
+SELECT [Distance]
+FROM Way
+WHERE ID = 1
+--Distance
+----------
+--7713
+
+--т2 возвращает прежнее значение
+
+SELECT [Distance]
+FROM Way
+WHERE ID = 1
+--Distance
+----------
+--1900
+COMMIT
+--Итог: как мы видим, т2 не была блокирована и успешно внесла изменения, и т1 на одних и тех же запросах получала разные значения
+--Следовательно: READ UNCOMMITTED допускает грязное чтение
+
+----------------------------------------------------------------------------
+--Грязное чтение
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+
+BEGIN TRANSACTION
+
+SELECT [Distance]
+FROM Way
+WHERE ID = 1
+--Distance
+----------
+--1900
+
+--т2 меняет значение
+
+SELECT [Distance]
+FROM Way
+WHERE ID = 1
+--запрос будет блокироаться
+--т2 возвращает прежнее значение
+
+SELECT [Distance]
+FROM Way
+WHERE ID = 1
+--Distance
+----------
+--1900
+COMMIT
+--итог, READ COMMITTED не допускает грязных чтений
+
+--Неповторяющееся чтение
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+
+BEGIN TRANSACTION
+
+SELECT StartingStation, EndingStation, EstimatedTimeEnRoute
+FROM Way
+WHERE ID = 9
+--  |StartingStation	 |EndingStation|EstimatedTimeEnRoute|
+----|----------------|-------------|--------------------|
+--1 |Cloth Fair	     |Cock Lane	   |13                  |
+
+--т2 меняет значения и фиксирует их
+
+SELECT StartingStation, EndingStation, EstimatedTimeEnRoute
+FROM Way
+WHERE ID = 9
+
+COMMIT
+--  |StartingStation	 |EndingStation|EstimatedTimeEnRoute|
+----|----------------|-------------|--------------------|
+--1 |Cloth Fair	     |Cock Lane	   |100                 |
+
+--Как мы могли заметить, значение изменилось. Это значит, то
+--READ COMMITTED допускает неповторяющееся чтение
+--------------------------------------------------------------------------------------------
+
+--Неповторяющееся чтение
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ
+
+BEGIN TRANSACTION
+
+SELECT StartingStation, EndingStation, EstimatedTimeEnRoute
+FROM Way
+WHERE ID = 9
+
+--т2 делает запрос
+
+SELECT StartingStation, EndingStation, EstimatedTimeEnRoute
+FROM Way
+WHERE ID = 9
+
+COMMIT
+--Итог: REPEATABLE READ не допускает неповторяющееся чтение
+
+-----
+--Фантом
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ
+
+BEGIN TRANSACTION
+
+SELECT Name, AvarageSpeed, AmountOfCarInPark, FuelConsOn100k 
+FROM TypeOfTransport
+WHERE FuelConsOn100k < 50
+--------------------------------------------------------------
+--  |Name |	AvarageSpeed |	AmountOfCarInPark | FuelConsOn100k|
+----|-----|--------------|--------------------|---------------|
+--1 |Tram |	68			 |	17				  | 30			  |
+----|-----|--------------|--------------------|---------------|
+--2 |Train|	200			 |  3				  | 40			  |
+--------------------------------------------------------------
+
+--запрос т2 не был блокирован и добавилась строка
+
+SELECT Name, AvarageSpeed, AmountOfCarInPark, FuelConsOn100k 
+FROM TypeOfTransport
+WHERE FuelConsOn100k < 50
+--------------------------------------------------------------
+--  |Name |	AvarageSpeed |	AmountOfCarInPark | FuelConsOn100k|
+----|-----|--------------|--------------------|---------------|
+--1 |Bus  |	20			 |	3				  | 20			  |
+----|-----|--------------|--------------------|---------------|
+--2 |Tram |	68			 |	17				  | 30			  |
+----|-----|--------------|--------------------|---------------|
+--3 |Train|	200			 |  3				  | 40			  |
+--------------------------------------------------------------
+COMMIT
+--Итог: как мы видим, т2 не была блокирована и успешно внесла изменения, и т1 на одних и тех же запросах получала разные значения
+--Следовательно: REPEATABLE READ допускает наличие фантома
+
+
+--------------------------------------------------------------
+--Фантом
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+BEGIN TRANSACTION
+
+SELECT Name, AvarageSpeed, AmountOfCarInPark, FuelConsOn100k 
+FROM TypeOfTransport
+WHERE FuelConsOn100k < 50
+--------------------------------------------------------------
+--  |Name |	AvarageSpeed |	AmountOfCarInPark | FuelConsOn100k|
+----|-----|--------------|--------------------|---------------|
+--1 |Tram |	68			 |	17				  | 30			  |
+----|-----|--------------|--------------------|---------------|
+--2 |Train|	200			 |  3				  | 40			  |
+--------------------------------------------------------------
+
+--т2 пытается добавить строку. запрос блокируется
+
+SELECT Name, AvarageSpeed, AmountOfCarInPark, FuelConsOn100k 
+FROM TypeOfTransport
+WHERE FuelConsOn100k < 50
+--------------------------------------------------------------
+--  |Name |	AvarageSpeed |	AmountOfCarInPark | FuelConsOn100k|
+----|-----|--------------|--------------------|---------------|
+--1 |Tram |	68			 |	17				  | 30			  |
+----|-----|--------------|--------------------|---------------|
+--2 |Train|	200			 |  3				  | 40			  |
+--------------------------------------------------------------
+COMMIT
+--итог: SERIALIZABLE не допускает наличие фантомов

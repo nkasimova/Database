@@ -1,0 +1,39 @@
+CREATE TABLE Tree
+(
+    ID INT,
+    ParentID INT
+)
+GO
+
+INSERT INTO Tree VALUES (1, NULL);
+INSERT INTO Tree VALUES (2, 1);
+INSERT INTO Tree VALUES (3, 1);
+INSERT INTO Tree VALUES (6, 5);
+INSERT INTO Tree VALUES (4, 2);
+INSERT INTO Tree VALUES (5, 2);
+INSERT INTO Tree VALUES (6, 3);
+INSERT INTO Tree VALUES (7, 3);
+INSERT INTO Tree VALUES (8, 5);
+INSERT INTO Tree VALUES (9, 7);
+INSERT INTO Tree VALUES (9, 6);
+GO
+
+WITH CTE(ID, DESCENDANT_ID, Distance)
+AS
+(
+    SELECT Tree.ParentID AS ID, Tree.ID, 1 
+    FROM Tree
+    WHERE Tree.ParentID IS NOT NULL 
+	UNION ALL
+    SELECT Tree.ParentID AS ID, CTE.DESCENDANT_ID, CTE.Distance + 1
+    FROM Tree INNER JOIN CTE ON Tree.ID = CTE.ID
+    WHERE Tree.ParentID IS NOT NULL
+)
+
+SELECT DISTINCT CTE.ID, CTE.DESCENDANT_ID
+FROM CTE
+WHERE (CTE.DESCENDANT_ID = 9) AND (CTE.DISTANCE = 2) --выводим путь от нашей начальной вершины(с id = 9) до ее вершины-родителя, находящегося от нее на расстоянии 3
+ORDER BY CTE.ID, CTE.DESCENDANT_ID;
+GO
+
+DROP TABLE Tree;
